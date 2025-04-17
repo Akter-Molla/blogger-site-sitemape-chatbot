@@ -1,0 +1,269 @@
+<link href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css' rel='stylesheet'/>
+<style>
+    /* Basic styles for the chat widget */
+    #chat-widget {
+        position: fixed;
+        bottom: 10px;
+        right: 10px;
+        width: 300px;
+        background-color: #f1f1f1;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        display: none;
+        z-index: 1000;
+    }
+    #chat-header {
+        background-color: #007bff;
+        color: #fff;
+        padding: 10px;
+        font-size: 18px;
+        border-radius: 5px 5px 0 0;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    #chat-body {
+        height: 300px;
+        overflow-y: auto;
+        padding: 10px;
+    }
+    #chat-footer {
+        padding: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    #chat-input {
+        flex: 1;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+    }
+    #chat-send {
+        background-color: #007bff;
+        color: #fff;
+        border: none;
+        padding: 10px;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    #chat-send:hover {
+        background-color: #0056b3;
+    }
+    #user-info-form {
+        padding: 10px;
+    }
+    #user-info-form input {
+        width: calc(100% - 22px);
+        margin: 5px 0;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+    }
+    #user-info-form button {
+        width: 100%;
+        padding: 10px;
+        border: none;
+        border-radius: 5px;
+        background-color: #007bff;
+        color: white;
+        cursor: pointer;
+    }
+    #user-info-form button:hover {
+        background-color: #0056b3;
+    }
+    .welcome-message {
+        font-size: 16px;
+        color: #007bff;
+        margin-bottom: 10px;
+        font-weight: bold;
+    }
+    #toggle-button {
+        position: fixed;
+        bottom: 10px;
+        right: 10px;
+        background-color: #007bff;
+        color: #fff;
+        border: none;
+        padding: 10px;
+        border-radius: 50%;
+        cursor: pointer;
+        z-index: 1001;
+    }
+    #toggle-button i {
+        font-size: 20px;
+    }
+#chat-footer p {
+    margin-top: 10px;
+    font-size: 12px;
+    text-align: center;
+}
+
+</style>
+<!-- Chat Widget HTML -->
+<div id='chat-widget'>
+    <div id='chat-header'>
+        <div>
+            <i class='fas fa-comments'></i> আক্তার মোল্লা
+        </div>
+    </div>
+    <div id='chat-body'>
+        <div class='welcome-message'>আসসালামু আলাইকুম, চ্যাট শুরু করতে আপনার নাম ও ইমেইল প্রদান করুন অথবা নামহীন চ্যাট করতে "নামহীন চ্যাট" বোতামে ক্লিক করুন। ধন্যবাদ।</div>
+    </div>
+    <div id='chat-footer' style='display:none'>
+        <input id='chat-input' placeholder='আপনার বার্তা লিখুন...' type='text'/>
+        <button id='chat-send'>পাঠান</button>
+        <!-- Paragraph moved to directly below input and button -->
+    </div>        <p>
+            Powered by <a href="https://aktermolla.blogspot.com/" target="_blank">মো: আক্তার মোল্লা</a>
+        </p>
+    <div id='user-info-form'>
+        <input id='input-name' placeholder='আপনার নাম লিখুন' type='text'/>
+        <input id='input-email' placeholder='আপনার ইমেইল লিখুন' type='email'/>
+        <button id='start-chat'>চ্যাট শুরু করুন</button>
+        <button id='start-anonymous-chat'>নামহীন চ্যাট</button>
+    </div>
+</div>
+
+<!-- Toggle Button -->
+<button id='toggle-button'><i class='fas fa-comment-dots'></i></button>
+
+
+<script>
+    const chatWidget = document.getElementById('chat-widget');
+    const chatBody = document.getElementById('chat-body');
+    const chatInput = document.getElementById('chat-input');
+    const chatSend = document.getElementById('chat-send');
+    const toggleButton = document.getElementById('toggle-button');
+    const userInfoForm = document.getElementById('user-info-form');
+    const inputName = document.getElementById('input-name');
+    const inputEmail = document.getElementById('input-email');
+    const startChatButton = document.getElementById('start-chat');
+    const startAnonymousChatButton = document.getElementById('start-anonymous-chat');
+
+    let userName = null;
+    const posts = [];
+
+    const predefinedResponses = {
+        "hello": "Hi there! How can I help you today?",
+        "how are you": "I'm just a bot, but I'm doing great! How can I assist you?",
+        "what is your name": "I'm your chatbot assistant. How can I help you?",
+        "bye": "Goodbye! Have a great day!"
+    };
+
+    function fetchPosts() {
+        fetch('https://aktermolla.blogspot.com/feeds/posts/default?alt=json')
+            .then(response => response.json())
+            .then(data => {
+                const entries = data.feed.entry;
+                entries.forEach(entry => {
+                    posts.push({
+                        title: entry.title.$t,
+                        link: entry.link.find(link => link.rel === 'alternate').href,
+                        content: entry.content.$t,
+                        categories: entry.category.map(category => category.term.toLowerCase())
+                    });
+                });
+            })
+            .catch(error => console.error('Error fetching posts:', error));
+    }
+
+    function addMessage(who, message, icon) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `chat-message ${who}`;
+        messageDiv.innerHTML = `
+            <img class='icon' src='${icon}'/>
+            <span>${message}</span>
+        `;
+        chatBody.appendChild(messageDiv);
+        chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    function getResponse(userInput) {
+        const inputWords = userInput.toLowerCase().split(/\s+/);
+        
+        // Check predefined responses
+        for (const [question, answer] of Object.entries(predefinedResponses)) {
+            if (inputWords.includes(question)) {
+                return answer;
+            }
+        }
+
+        // Check posts
+        let responses = [];
+        posts.forEach(post => {
+            const titleMatch = inputWords.some(word => post.title.toLowerCase().includes(word));
+            const contentMatch = inputWords.some(word => post.content.toLowerCase().includes(word));
+            const categoryMatch = inputWords.some(word => post.categories.includes(word));
+
+            if (titleMatch || contentMatch || categoryMatch) {
+                responses.push(`<a href='${post.link}' target='_blank'>${post.title}</a>`);
+            }
+        });
+
+        if (responses.length === 0) {
+            responses.push('Sorry, I couldn\'t find an answer to that.');
+        }
+
+        // Numbered responses
+        return responses.map((response, index) => `${index + 1}. ${response}`).join('<br/>');
+    }
+
+    chatSend.addEventListener('click', () => {
+        const userInput = chatInput.value.trim();
+        if (userInput) {
+            const displayName = userName ? userName : 'Anonymous';
+            addMessage('user', `${displayName}: ${userInput}`, 'https://via.placeholder.com/30/4CAF50/FFFFFF?text=U');
+            setTimeout(() => {
+                const response = getResponse(userInput);
+                addMessage('bot', `${displayName}, ${response}`, 'https://via.placeholder.com/30/007bff/FFFFFF?text=B');
+            }, 1000);
+            chatInput.value = '';
+        }
+    });
+
+    chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            chatSend.click();
+        }
+    });
+
+    startChatButton.addEventListener('click', () => {
+        userName = inputName.value.trim();
+        const userEmail = inputEmail.value.trim();
+        if (userName && userEmail) {
+            userInfoForm.style.display = 'none';
+            document.getElementById('chat-footer').style.display = 'flex';
+            addMessage('bot', `Hello ${userName}! How can I assist you today?`, 'https://via.placeholder.com/30/007bff/FFFFFF?text=B');
+            sessionStorage.setItem('formSubmitted', 'true'); // Save to session storage
+        } else {
+            alert('Please provide both name and email.');
+        }
+    });
+
+    startAnonymousChatButton.addEventListener('click', () => {
+        userName = 'Anonymous';
+        userInfoForm.style.display = 'none';
+        document.getElementById('chat-footer').style.display = 'flex';
+        addMessage('bot', `আসস&#2494;ল&#2494;ম&#2497; আল&#2494;ইক&#2497;ম,আম&#2495; ক&#2495;ভ&#2494;ব&#2503; স&#2494;হ&#2494;য&#2509;য করত&#2503; প&#2494;র&#2495;?`, 'https://via.placeholder.com/30/007bff/FFFFFF?text=B');
+        sessionStorage.setItem('formSubmitted', 'true'); // Save to session storage
+    });
+
+    toggleButton.addEventListener('click', () => {
+        if (sessionStorage.getItem('formSubmitted') === 'true') {
+            chatWidget.style.display = chatWidget.style.display === 'none' ? 'block' : 'none';
+        } else {
+            chatWidget.style.display = chatWidget.style.display === 'none' ? 'block' : 'none';
+            if (chatWidget.style.display === 'block') {
+                document.getElementById('chat-footer').style.display = 'none';
+                userInfoForm.style.display = 'block';
+                inputName.value = '';
+                inputEmail.value = '';
+            }
+        }
+    });
+
+    fetchPosts();
+</script>
