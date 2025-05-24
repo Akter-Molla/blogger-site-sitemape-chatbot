@@ -847,6 +847,13 @@ document.addEventListener('DOMContentLoaded', function() {
   const voiceStatus = document.getElementById('voice-status');
   const welcomeMessage = document.querySelector('.welcome-message');
   const darkModeToggle = document.getElementById('dark-mode-toggle');
+// Event delegation for quick replies
+chatBody.addEventListener('click', (e) => {
+  if (e.target.classList.contains('quick-reply')) {
+    const question = e.target.textContent;
+    sendMessage(question);
+  }
+});
 
   // State variables
   let userName = null;
@@ -1159,14 +1166,14 @@ document.addEventListener('DOMContentLoaded', function() {
       const { answer, type, suggestedQuestions } = getResponse(message);
       
       // সাজেস্টেড প্রশ্ন তৈরি করুন
-      const quickReplies = `
-        <div class="suggested-questions">
-          <div class="suggested-title">আরও জানুন:</div>
-          <div class="quick-replies">
-            ${suggestedQuestions.map(q => `<div class="quick-reply">${q}</div>`).join('')}
-          </div>
-        </div>
-      `;
+const quickReplies = `
+  <div class="suggested-questions">
+    <div class="suggested-title">আরও জানুন:</div>
+    <div class="quick-replies">
+      ${suggestedQuestions.map(q => `<div class="quick-reply">${q}</div>`).join('')}
+    </div>
+  </div>
+`;
       
       addMessage('bot', answer, { html: quickReplies });
       chatSend.disabled = false;
@@ -1179,10 +1186,18 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // মেসেজ যোগ করুন (কিউ ব্যবস্থাপনা সহ)
-  function addMessage(sender, message, options = {}) {
-    const messageData = { sender, message, options };
-    messageQueue.push(messageData);
+ function addMessage(sender, message, options = {}) {
+  const messageData = { sender, message, options };
+  messageQueue.push(messageData);
+  
+  // If this is a bot message with quick replies, add them to a container
+  if (sender === 'bot' && options.html) {
+    const container = document.createElement('div');
+    container.className = 'message-with-replies';
+    container.innerHTML = options.html;
+    messageData.options.html = container.innerHTML;
   }
+}
 
   // মেসেজ কিউ প্রসেস করুন
   function processMessageQueue() {
@@ -1476,13 +1491,35 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // দ্রুত প্রশ্ন দেখান
-  function showQuickQuestions() {
-    addMessage('bot', 'দ্রুত প্রশ্ন নির্বাচন করুন:', {
-      html: `<div class="quick-replies">${
-        quickQuestions.map(q => `<div class="quick-reply">${q}</div>`).join('')
-      }</div>`
+function showQuickQuestions() {
+  // Remove any existing quick questions to avoid duplicates
+  const existingQuickQuestions = document.querySelectorAll('.quick-replies-container');
+  existingQuickQuestions.forEach(el => el.remove());
+  
+  const quickRepliesDiv = document.createElement('div');
+  quickRepliesDiv.className = 'quick-replies-container';
+  quickRepliesDiv.innerHTML = `
+    <div class="suggested-questions">
+      <div class="suggested-title">দ্রুত প্রশ্ন নির্বাচন করুন:</div>
+      <div class="quick-replies">
+        ${quickQuestions.map(q => `<div class="quick-reply" data-question="${q}">${q}</div>`).join('')}
+      </div>
+    </div>
+  `;
+  
+  // Add the quick replies to the chat
+  addMessage('bot', 'দ্রুত প্রশ্ন নির্বাচন করুন:', { html: quickRepliesDiv.innerHTML });
+  
+  // Add event listeners to the new quick reply buttons
+  setTimeout(() => {
+    document.querySelectorAll('.quick-reply').forEach(button => {
+      button.addEventListener('click', function() {
+        const question = this.getAttribute('data-question');
+        sendMessage(question);
+      });
     });
-  }
+  }, 100);
+}
 
   // ডার্ক মোড চেক করুন
   function checkDarkModePreference() {
